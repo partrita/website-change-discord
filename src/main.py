@@ -3,10 +3,10 @@ import os
 import random
 import sqlite3
 import time
+from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any, Tuple
 
 import requests
-import schedule
 import yaml
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -45,9 +45,9 @@ def init_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def get_stored_data(cursor: sqlite3.Cursor, url: str) -> Optional[Tuple[str, str]]:
-    """Retrieve the stored hash and last content for a given URL."""
-    cursor.execute("SELECT hash, last_content FROM site_hashes WHERE url = ?", (url,))
+def get_stored_data(cursor: sqlite3.Cursor, url: str) -> Optional[Tuple[str, str, str]]:
+    """Retrieve the stored hash, last content, and last checked timestamp for a given URL."""
+    cursor.execute("SELECT hash, last_content, last_checked FROM site_hashes WHERE url = ?", (url,))
     result = cursor.fetchone()
     return result if result else None
 
@@ -57,14 +57,17 @@ def update_site_data(
 ) -> None:
     """Update or insert the hash and content for a given URL in the database."""
     cursor = conn.cursor()
+    # Use ISO 8601 format for consistency
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute(
         """
         INSERT OR REPLACE INTO site_hashes (url, hash, last_content, last_checked)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?)
     """,
-        (url, new_hash, new_content),
+        (url, new_hash, new_content, now),
     )
     conn.commit()
+
 
 
 def load_config(file_path: str) -> Dict[str, Any]:
@@ -120,11 +123,23 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
 def process_target(
     conn: sqlite3.Connection, target: Dict[str, Any], global_webhook: Optional[str]
 ) -> None:
-    """Check a single target for changes and send detailed notification."""
+    """Check a single target for changes if the interval has passed."""
     name = target.get("name", target["url"])
     url = target["url"]
     selector = target["selector"]
     webhook = target.get("webhook_url") or global_webhook
+    interval_hours = target.get("interval_hours", 24)
+
+    stored_data = get_stored_data(conn.cursor(), url)
+    if stored_data:
+        previous_hash, previous_content, last_checked_str = stored_data
+        if last_checked_str:
+            last_checked = datetime.strptime(last_checked_str, "%Y-%m-%d %H:%M:%S")
+            if datetime.now() < last_checked + timedelta(hours=interval_hours):
+                print(f"[-] Skipping: {name} (Interval not reached)")
+                return
+    else:
+        previous_hash, previous_content = None, None
 
     print(f"[*] Checking: {name}...", end=" ", flush=True)
     html = get_html(url)
@@ -138,14 +153,11 @@ def process_target(
         return
 
     current_hash = calculate_hash(parsed_data)
-    stored_data = get_stored_data(conn.cursor(), url)
 
     if stored_data is None:
         print("Initial check. Data saved.")
         update_site_data(conn, url, current_hash, parsed_data)
         return
-
-    previous_hash, previous_content = stored_data
 
     if current_hash != previous_hash:
         print("CHANGE DETECTED!")
@@ -171,6 +183,8 @@ def process_target(
         update_site_data(conn, url, current_hash, parsed_data)
     else:
         print("No changes.")
+        # Update last_checked even if no change was detected
+        update_site_data(conn, url, current_hash, parsed_data)
 
 
 def run_job() -> None:
@@ -196,11 +210,6 @@ def run_job() -> None:
 
 def main() -> None:
     run_job()
-    schedule.every(10).minutes.do(run_job)
-    print("\n[!] Loop mode started. Press Ctrl+C to exit.")
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
 
 
 if __name__ == "__main__":

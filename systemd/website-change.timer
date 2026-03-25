@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Website Change Notification Service Hourly
+
+[Timer]
+# Run every hour to check for individual site intervals
+OnCalendar=hourly
+# Ensure it runs even if it missed its last scheduled time
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -4,49 +4,40 @@
 
 ## 주요 기능
 - CSS Selector를 이용한 정밀한 영역 감시
+- **사이트별 개별 감시 주기 설정** (시간 단위)
+- **systemd Timer 기반**의 효율적인 실행 (리눅스 서버 최적화)
 - 안티 봇 방지 (User-Agent 랜덤화, Referer 위장, 지연 시간 적용)
-- SQLite 기반의 이전 데이터 관리
+- SQLite 기반의 이전 데이터 및 체크 시간 관리
 - Discord 웹훅 알림 지원
 
 ---
 
 ## 설정 방법 (`config.yaml`)
 
-감시할 사이트 목록은 `config.yaml` 파일에서 설정합니다.
+감시할 사이트 목록과 각 사이트별 주기를 `config.yaml` 파일에서 설정합니다.
 
 ### 설정 항목
 
-| 항목 | 설명 | 필수 여부 |
-| :--- | :--- | :---: |
-| `name` | 알림 시 표시될 사이트 이름 | O |
-| `url` | 감시할 웹사이트의 전체 URL | O |
-| `selector` | 감시할 영역의 CSS Selector | O |
+| 항목 | 설명 | 기본값 | 필수 여부 |
+| :--- | :--- | :---: | :---: |
+| `name` | 알림 시 표시될 사이트 이름 | - | O |
+| `url` | 감시할 웹사이트의 전체 URL | - | O |
+| `selector` | 감시할 영역의 CSS Selector | - | O |
+| `interval_hours` | 체크 주기 (시간 단위) | 24 | X |
 
-### CSS Selector 사용 가이드 (핵심)
+### 설정 예시
+```yaml
+targets:
+  - name: "뉴스 사이트"
+    url: "https://news.ycombinator.com"
+    selector: ".titleline"
+    interval_hours: 12  # 12시간마다 체크
 
-이 도구는 `BeautifulSoup`의 `select_one()` 메서드를 사용하여 데이터를 추출합니다. HTML 요소의 텍스트 내용이 변경되면 이를 감지합니다.
-
-#### 1. ID로 찾기
-ID는 페이지에서 유일하므로 가장 확실한 방법입니다. `#` 기호를 사용합니다.
-- 예: `<div id="content">...</div>` -> `selector: "#content"`
-
-#### 2. 클래스로 찾기
-특정 클래스를 가진 요소를 찾을 때 사용합니다. `.` 기호를 사용합니다.
-- 예: `<p class="article-body">...</p>` -> `selector: ".article-body"`
-
-#### 3. 태그와 속성 조합
-태그와 클래스, 또는 다른 속성을 조합하여 더 정밀하게 선택할 수 있습니다.
-- 예: `<h1 class="title">...</h1>` -> `selector: "h1.title"`
-- 예: `<div data-type="main">...</div>` -> `selector: "div[data-type='main']"`
-
-#### 4. 계층 구조 (공백 사용)
-특정 부모 요소 아래에 있는 자식 요소를 찾을 때 사용합니다.
-- 예: `<div class="main"><span>찾을 내용</span></div>` -> `selector: ".main span"`
-
-#### 팁: 개발자 도구 활용하기
-1. 브라우저(Chrome 등)에서 감시할 영역을 마우스 우클릭 -> **검사(Inspect)** 클릭
-2. 해당 요소가 강조되면 마우스 우클릭 -> **Copy** -> **Copy selector** 클릭
-3. 복사된 값을 `selector` 항목에 붙여넣으세요. (단, 너무 복잡한 경로는 사이트 구조 변경 시 깨지기 쉬우므로 간단한 ID나 클래스 위주로 정리하는 것이 좋습니다.)
+  - name: "구글 공지사항"
+    url: "https://www.google.com/"
+    selector: "h1"
+    interval_hours: 24  # 하루에 한 번 체크
+```
 
 ---
 
@@ -59,37 +50,48 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
 ### 2. 의존성 설치 및 실행
-`uv`를 사용하여 간편하게 실행할 수 있습니다.
+이 도구는 실행 시 한 번 스캔을 수행하고 종료됩니다. `uv`를 사용하여 실행할 수 있습니다.
 ```bash
 uv run src/main.py
 ```
 
-## 리눅스 서버에서 영구 실행하기 (systemd)
+---
 
-만약 서버를 사용 중이라면, 터미널을 꺼도 계속 돌아가도록 systemd 설정을 추천합니다.
+## 리눅스 서버에서 자동 실행 (systemd User Service)
 
-1. 파일 생성: `sudo nano /etc/systemd/system/website-watcher.service`
-2. 내용 입력 (경로 등은 실제 환경에 맞게 수정):
+리눅스 서버(Ubuntu, Debian 등)를 사용 중이라면, **systemd 사용자 서비스와 타이머**를 사용하여 주기적으로 자동 실행되도록 설정하는 것이 가장 권장됩니다. 이 방식은 루트(root) 권한 없이도 설정 가능하며 사용자별로 독립적으로 동작합니다.
 
-```ini
-[Unit]
-Description=Website Change Discord Watcher
-After=network.target
-
-[Service]
-User=fkt
-WorkingDirectory=/home/fkt/website-change-discord
-ExecStart=/home/fkt/.local/bin/uv run src/main.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-3. 명령어 실행:
+### 1. 설정 파일 준비
+프로젝트의 `systemd/` 디렉토리에 있는 설정 파일들을 사용자 폴더로 복사합니다.
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable website-watcher
-sudo systemctl start website-watcher
+mkdir -p ~/.config/systemd/user/
+cp systemd/website-change.service ~/.config/systemd/user/
+cp systemd/website-change.timer ~/.config/systemd/user/
 ```
+
+### 2. 서비스 등록 및 시작
+다음 명령어를 실행하여 타이머를 활성화합니다.
+
+```bash
+# systemd 설정 새로고침
+systemctl --user daemon-reload
+
+# 타이머 활성화 및 즉시 시작
+systemctl --user enable --now website-change.timer
+```
+
+### 3. 상태 확인 및 관리
+```bash
+# 타이머가 정상적으로 등록되었는지 확인 (다음 실행 시간 표시)
+systemctl --user list-timers website-change.timer
+
+# 로그 확인 (실행 결과 및 오류 확인)
+journalctl --user -u website-change.service -f
+
+# 수동으로 즉시 실행 테스트
+systemctl --user start website-change.service
+```
+
+### 참고: 작동 원리
+타이머는 매시간(`hourly`) 스크립트를 실행합니다. 스크립트 내부에서 각 사이트별로 설정된 `interval_hours`가 지났는지 확인하여, 주기가 된 사이트만 실제로 스캔을 수행합니다. 따라서 서버 자원을 매우 효율적으로 사용합니다.

@@ -1,0 +1,14 @@
+[Unit]
+Description=Website Change Notification Service
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/website-change-discord
+# Use 'env' to find 'uv' and ensure the user's local path is included
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/env uv run src/main.py
+
+[Install]
+WantedBy=default.target
