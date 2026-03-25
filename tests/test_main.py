@@ -48,14 +48,15 @@ def test_db_operations(db_conn: sqlite3.Connection) -> None:
     # Store data
     update_site_data(db_conn, url, test_hash, test_content)
     result = get_stored_data(db_conn.cursor(), url)
-    assert result == (test_hash, test_content)
+    assert result[:2] == (test_hash, test_content)
+    assert len(result) == 3
 
     # Update data
     new_hash = "xyz789hash"
     new_content = "New Content"
     update_site_data(db_conn, url, new_hash, new_content)
     result = get_stored_data(db_conn.cursor(), url)
-    assert result == (new_hash, new_content)
+    assert result[:2] == (new_hash, new_content)
 
 
 # 4. Full Process Flow Test
@@ -68,6 +69,7 @@ def test_process_target_flow(
         "name": "Test Site",
         "url": "https://test.com",
         "selector": "h1",
+        "interval_hours": 0,
     }
     global_webhook = "https://webhook.com"
 

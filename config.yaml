@@ -1,9 +1,9 @@
 # 감시할 웹사이트 목록
 targets:
   - name: "예제 사이트 1"
-    url: "https://www.google.com/"
+    url: "http://example.com/"
     selector: "h1"
-    interval_hours: 12  # 12시간마다 체크
+    interval_hours: 24
 
   - name: "뉴스 사이트"
     url: "https://news.ycombinator.com"
