@@ -115,7 +115,8 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         return
     payload = {"content": message}
     try:
-        requests.post(webhook_url, json=payload, timeout=10)
+        response = requests.post(webhook_url, json=payload, timeout=10)
+        response.raise_for_status()
     except Exception as e:
         print(f"[-] Discord error: {e}")
 

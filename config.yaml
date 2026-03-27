@@ -9,3 +9,8 @@ targets:
     url: "https://news.ycombinator.com"
     selector: ".titleline"
     interval_hours: 24  # 24시간마다 체크
+
+  - name: "프리픽스"
+    url: "https://prefix.dev/blog"
+    selector: "h3"
+    interval_hours: 24  # 24시간마다 체크
