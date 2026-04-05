@@ -81,7 +81,14 @@ systemctl --user daemon-reload
 systemctl --user enable --now website-change.timer
 ```
 
-### 3. 상태 확인 및 관리
+### 3. 로그아웃 후에도 실행 유지 (Linger 설정)
+기본적으로 `systemd --user` 서비스는 사용자가 로그아웃하면 종료됩니다. 서버 부팅 시 자동으로 시작되고 로그아웃 후에도 서비스가 계속 실행되도록 하려면 다음 명령어를 실행해야 합니다.
+
+```bash
+sudo loginctl enable-linger $USER
+```
+
+### 4. 상태 확인 및 관리
 ```bash
 # 타이머가 정상적으로 등록되었는지 확인 (다음 실행 시간 표시)
 systemctl --user list-timers website-change.timer
