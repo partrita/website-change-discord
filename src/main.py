@@ -141,8 +141,9 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
     try:
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
-    except Exception as e:
-        logger.error(f"Discord notification error: {e}")
+    except Exception:
+        # Avoid logging the exception object directly as it contains the secret webhook URL
+        logger.error("Discord notification error (URL redacted for security)")
 
 
 def process_target(
