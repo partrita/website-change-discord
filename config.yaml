@@ -3,14 +3,14 @@ targets:
   - name: "예제 사이트 1"
     url: "http://example.com/"
     selector: "h1"
-    interval_hours: 24
+    interval_hours: 1
 
   - name: "뉴스 사이트"
     url: "https://news.ycombinator.com"
     selector: ".titleline"
-    interval_hours: 24  # 24시간마다 체크
+    interval_hours: 1  # 1시간마다 체크
 
   - name: "프리픽스"
     url: "https://prefix.dev/blog"
     selector: "h3"
-    interval_hours: 24  # 24시간마다 체크
+    interval_hours: 1  # 1시간마다 체크

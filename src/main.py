@@ -1,9 +1,11 @@
 import hashlib
+import logging
 import os
 import random
 import sqlite3
 import time
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, List, Any, Tuple
 
 import requests
@@ -18,8 +20,26 @@ load_dotenv()
 # --- Configuration Constants ---
 CONFIG_FILE = "config.yaml"
 DB_FILE = "hashes.db"
+LOG_FILE = "app.log"
 DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
 ua = UserAgent()
+
+# --- Logging Setup ---
+logger = logging.getLogger("website-change")
+logger.setLevel(logging.INFO)
+
+# Formatter: [2026-04-06 13:20:01] [INFO] Message
+formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+# File Handler (Max 5MB, keep 3 backup files)
+file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Stream Handler (Console output for systemd/manual run)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
@@ -75,7 +95,11 @@ def load_config(file_path: str) -> Dict[str, Any]:
     if not os.path.exists(file_path):
         return {"targets": []}
     with open(file_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {"targets": []}
+        try:
+            return yaml.safe_load(f) or {"targets": []}
+        except Exception as e:
+            logger.error(f"Failed to load config file: {e}")
+            return {"targets": []}
 
 
 def get_html(url: str) -> Optional[str]:
@@ -93,7 +117,7 @@ def get_html(url: str) -> Optional[str]:
         response.raise_for_status()
         return response.text
     except requests.exceptions.RequestException as e:
-        print(f"[-] [Error] {url}: {e}")
+        logger.error(f"Error fetching {url}: {e}")
         return None
 
 
@@ -118,7 +142,7 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
     except Exception as e:
-        print(f"[-] Discord error: {e}")
+        logger.error(f"Discord notification error: {e}")
 
 
 def process_target(
@@ -136,32 +160,32 @@ def process_target(
         previous_hash, previous_content, last_checked_str = stored_data
         if last_checked_str:
             last_checked = datetime.strptime(last_checked_str, "%Y-%m-%d %H:%M:%S")
-            if datetime.now() < last_checked + timedelta(hours=interval_hours):
-                print(f"[-] Skipping: {name} (Interval not reached)")
+            # Using 2-minute buffer for systemd timer variations
+            if datetime.now() < last_checked + timedelta(hours=interval_hours) - timedelta(minutes=2):
+                logger.info(f"Skipping: {name} (Interval not reached)")
                 return
     else:
         previous_hash, previous_content = None, None
 
-    print(f"[*] Checking: {name}...", end=" ", flush=True)
+    logger.info(f"Checking: {name} ({url})")
     html = get_html(url)
     if not html:
-        print("Failed (HTTP error)")
         return
 
     parsed_data = parse_element(html, selector)
     if parsed_data is None:
-        print("Failed (Selector not found)")
+        logger.warning(f"Selector '{selector}' not found on {name}")
         return
 
     current_hash = calculate_hash(parsed_data)
 
     if stored_data is None:
-        print("Initial check. Data saved.")
+        logger.info(f"Initial check for {name}. Data saved.")
         update_site_data(conn, url, current_hash, parsed_data)
         return
 
     if current_hash != previous_hash:
-        print("CHANGE DETECTED!")
+        logger.info(f"CHANGE DETECTED for {name}!")
         # Create a brief summary of changes
         old_text = (
             (previous_content[:100] + "...")
@@ -183,20 +207,20 @@ def process_target(
         send_discord_notification(webhook, message)
         update_site_data(conn, url, current_hash, parsed_data)
     else:
-        print("No changes.")
+        logger.info(f"No changes for {name}.")
         # Update last_checked even if no change was detected
         update_site_data(conn, url, current_hash, parsed_data)
 
 
 def run_job() -> None:
     """Main job function."""
-    print(f"\n[*] Starting scan at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("Starting scan...")
     config = load_config(CONFIG_FILE)
     global_webhook = DISCORD_WEBHOOK_URL
     targets: List[Dict[str, Any]] = config.get("targets", [])
 
     if not targets:
-        print("[!] No targets found.")
+        logger.warning("No targets found in config.")
         return
 
     conn = init_db(DB_FILE)
@@ -206,7 +230,7 @@ def run_job() -> None:
             time.sleep(random.uniform(2.0, 5.0))
     finally:
         conn.close()
-    print("[*] Scan completed.")
+    logger.info("Scan completed.")
 
 
 def main() -> None:

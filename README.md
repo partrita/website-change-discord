@@ -57,6 +57,33 @@ uv run src/main.py
 
 ---
 
+## 모니터링 및 로그 확인
+
+프로젝트의 작동 상태를 확인하기 위해 두 가지 방법으로 로그를 제공합니다.
+
+### 1. 로그 파일 확인 (`app.log`)
+실행 시마다 상세한 작업 내용이 `app.log` 파일에 기록됩니다. 파일 크기가 커지면 자동으로 백업(Rotation) 처리됩니다.
+```bash
+# 실시간 로그 확인
+tail -f app.log
+```
+
+**로그 내용 예시:**
+- `[INFO] Starting scan...`: 스캔 시작
+- `[INFO] Checking: [사이트명] ([URL])`: 사이트 체크 시작
+- `[INFO] CHANGE DETECTED!`: 변동 사항 감지 및 디스코드 알림 발송
+- `[INFO] Skipping: [사이트명] (Interval not reached)`: 아직 체크 주기가 되지 않아 건너뜀
+- `[ERROR] ...`: 네트워크 오류 또는 설정 오류 발생 시 출력
+
+### 2. 시스템디 로그 확인 (`journalctl`)
+`systemd` 타이머에 의해 실행된 기록은 시스템 저널에서도 확인할 수 있습니다.
+```bash
+# 최근 실행 기록 및 실시간 모니터링
+journalctl --user -u website-change.service -f
+```
+
+---
+
 ## 리눅스 서버에서 자동 실행 (systemd User Service)
 
 리눅스 서버(Ubuntu, Debian 등)를 사용 중이라면, **systemd 사용자 서비스와 타이머**를 사용하여 주기적으로 자동 실행되도록 설정하는 것이 가장 권장됩니다. 이 방식은 루트(root) 권한 없이도 설정 가능하며 사용자별로 독립적으로 동작합니다.
