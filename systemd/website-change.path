@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch config.yaml for changes
+ConditionPathExists=%h/website-change-discord/config.yaml
+
+[Path]
+PathModified=%h/website-change-discord/config.yaml
+Unit=website-change.service
+
+[Install]
+WantedBy=default.target

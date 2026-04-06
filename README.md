@@ -39,6 +39,31 @@ targets:
     interval_hours: 24  # 하루에 한 번 체크
 ```
 
+## 설정 바로 반영하기 (`config.yaml` 변경 감지)
+
+`config.yaml` 파일을 수정했을 때, 다음 실행을 기다리지 않고 바로 반영되도록 하는 두 가지 방법이 있습니다.
+
+### 방법 1: 데몬 모드로 실행 (권장)
+스크립트를 종료하지 않고 백업에서 계속 실행하며, 설정 파일이 변경되면 즉시 스캔을 수행합니다.
+
+```bash
+# 데몬 모드로 실행
+uv run src/main.py --daemon
+```
+
+### 방법 2: systemd Path 유닛 사용 (서버 환경 권장)
+기존의 `oneshot` 서비스와 `timer` 방식을 유지하면서, 파일 변경 시에만 추가로 서비스를 실행합니다.
+
+1. `systemd/website-change.path` 파일을 복사합니다.
+   ```bash
+   cp systemd/website-change.path ~/.config/systemd/user/
+   ```
+2. path 유닛을 활성화합니다.
+   ```bash
+   systemctl --user daemon-reload
+   systemctl --user enable --now website-change.path
+   ```
+
 ---
 
 ## 설치 및 실행

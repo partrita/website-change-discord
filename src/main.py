@@ -4,15 +4,19 @@ import os
 import random
 import sqlite3
 import time
+import sys
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, List, Any, Tuple
 
 import requests
 import yaml
+import schedule
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from fake_useragent import UserAgent
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +29,7 @@ DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
 ua = UserAgent()
 
 # --- Logging Setup ---
+# ... rest of logger setup ...
 logger = logging.getLogger("website-change")
 logger.setLevel(logging.INFO)
 
@@ -234,8 +239,44 @@ def run_job() -> None:
     logger.info("Scan completed.")
 
 
+class ConfigChangeHandler(FileSystemEventHandler):
+    """Handler for config file modification events."""
+    def __init__(self, callback: Any) -> None:
+        self.callback = callback
+
+    def on_modified(self, event: Any) -> None:
+        if event.src_path.endswith(CONFIG_FILE):
+            logger.info(f"Config file {CONFIG_FILE} changed. Triggering immediate scan...")
+            self.callback()
+
+
 def main() -> None:
-    run_job()
+    """Main entry point."""
+    if "--daemon" in sys.argv:
+        logger.info("Running in daemon mode. Monitoring config changes.")
+        run_job() # Initial scan on startup
+
+        # Schedule hourly scan
+        schedule.every(1).hours.do(run_job)
+
+        # Setup watchdog to monitor config file changes
+        event_handler = ConfigChangeHandler(run_job)
+        observer = Observer()
+        # Watch the current directory for the config file
+        observer.schedule(event_handler, path=".", recursive=False)
+        observer.start()
+
+        try:
+            while True:
+                schedule.run_pending()
+                time.sleep(1)
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Stopping daemon...")
+            observer.stop()
+        observer.join()
+    else:
+        # One-off scan
+        run_job()
 
 
 if __name__ == "__main__":
