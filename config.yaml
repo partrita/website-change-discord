@@ -3,14 +3,19 @@ targets:
   - name: "예제 사이트 1"
     url: "http://example.com/"
     selector: "h1"
-    interval_hours: 1
+    interval_hours: 12 # 12시간마다
 
   - name: "뉴스 사이트"
     url: "https://news.ycombinator.com"
     selector: ".titleline"
-    interval_hours: 1  # 1시간마다 체크
+    interval_hours: 1  # 1시간마다
 
   - name: "프리픽스"
     url: "https://prefix.dev/blog"
     selector: "h3"
-    interval_hours: 1  # 1시간마다 체크
+    interval_hours: 12
+
+  - name: "비리디안"
+    url: "https://investors.viridiantherapeutics.com/news/"
+    selector: "#_ctrl0_ctl61_divNewsItemsContainer"
+    interval_hours: 12 
