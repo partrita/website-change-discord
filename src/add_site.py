@@ -18,9 +18,19 @@ def get_html(url):
     }
     try:
         print(f"[*] Fetching {url}...")
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=15, stream=True)
         response.raise_for_status()
-        return response.text
+
+        MAX_SIZE = 5 * 1024 * 1024
+        content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            content += chunk
+            if len(content) > MAX_SIZE:
+                print(f"[!] Error: Response from {url} exceeded 5MB limit.")
+                response.close()
+                return None
+
+        return content.decode(response.encoding or "utf-8", errors="replace")
     except Exception as e:
         print(f"[!] Error fetching {url}: {e}")
         return None

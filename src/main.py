@@ -126,9 +126,20 @@ def get_html(url: str) -> Optional[str]:
     }
     try:
         time.sleep(random.uniform(1.5, 4.0))
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=15, stream=True)
         response.raise_for_status()
-        return response.text
+
+        # Read in chunks up to 5MB to prevent memory exhaustion
+        MAX_SIZE = 5 * 1024 * 1024
+        content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            content += chunk
+            if len(content) > MAX_SIZE:
+                logger.error(f"Response from {url} exceeded 5MB limit.")
+                response.close()
+                return None
+
+        return content.decode(response.encoding or "utf-8", errors="replace")
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching {url}: {e}")
         return None
@@ -288,7 +299,7 @@ def main() -> None:
             while True:
                 schedule.run_pending()
                 time.sleep(1)
-        except KeyboardInterrupt, SystemExit:
+        except (KeyboardInterrupt, SystemExit):
             logger.info("Stopping daemon...")
             observer.stop()
         observer.join()

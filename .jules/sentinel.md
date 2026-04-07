@@ -9,3 +9,7 @@
 **Vulnerability:** Discord Webhook URL (which contains a secret token) can be leaked into `app.log` through exception messages if a request fails.
 **Learning:** `requests.exceptions` often include the full URL in their string representation. Direct logging of the exception object `f"{e}"` or `str(e)` is unsafe when the URL is a secret.
 **Prevention:** Catch specific exceptions and log generic messages without the exception object, or carefully sanitize the exception message before logging. Also, ensure database files are correctly ignored in `.gitignore`.
+## 2026-04-06 - Prevent DoS via Large HTTP Responses
+**Vulnerability:** The application used `requests.get()` without `stream=True` and without limits, making it susceptible to DoS attacks via memory exhaustion if a target URL returned an infinitely large stream or a massive file.
+**Learning:** `requests.get()` pulls the entire response body into memory by default. When scraping arbitrary or untrusted URLs, this behavior is a security risk.
+**Prevention:** Always use `stream=True` and manually read the response in chunks up to a safe maximum size limit. Ensure the socket is explicitly closed (`response.close()`) if the limit is exceeded to prevent file descriptor leaks.
