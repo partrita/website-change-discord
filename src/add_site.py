@@ -1,14 +1,12 @@
-import sys
 import yaml
 import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-import random
-import time
 import os
 
 CONFIG_FILE = "config.yaml"
 ua = UserAgent()
+
 
 def get_html(url):
     """Fetch HTML content from a URL with random headers."""
@@ -27,6 +25,7 @@ def get_html(url):
         print(f"[!] Error fetching {url}: {e}")
         return None
 
+
 def parse_element(html, selector):
     """Extract text from the HTML using a CSS selector."""
     soup = BeautifulSoup(html, "html.parser")
@@ -34,6 +33,7 @@ def parse_element(html, selector):
     if element:
         return element.get_text(strip=True)
     return None
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -44,13 +44,17 @@ def load_config():
         except Exception:
             return {"targets": []}
 
+
 def save_config(config):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+        yaml.dump(
+            config, f, allow_unicode=True, sort_keys=False, default_flow_style=False
+        )
+
 
 def main():
     print("=== Website Change Detection Helper ===")
-    
+
     config = load_config()
     existing_urls = [t.get("url") for t in config.get("targets", [])]
 
@@ -63,14 +67,16 @@ def main():
     if not url.startswith("http"):
         print("[!] Invalid URL.")
         return
-    
+
     if url in existing_urls:
         print(f"[!] Warning: {url} is already in the config.")
         cont = input("Do you want to continue anyway? (y/n): ").strip().lower()
-        if cont != 'y':
+        if cont != "y":
             return
 
-    selector = input("Enter CSS selector (e.g., #content, .article-title, h1): ").strip()
+    selector = input(
+        "Enter CSS selector (e.g., #content, .article-title, h1): "
+    ).strip()
     if not selector:
         print("[!] Selector is required.")
         return
@@ -88,7 +94,7 @@ def main():
         return
 
     result = parse_element(html, selector)
-    
+
     if result is None:
         print(f"\n[!] Selector '{selector}' not found on the page.")
         soup = BeautifulSoup(html, "html.parser")
@@ -96,26 +102,29 @@ def main():
         print(f"[*] Page Title: {title}")
         print("[*] Tip: Check the selector in your browser's Inspect Tool.")
     else:
-        print("\n" + "="*40)
+        print("\n" + "=" * 40)
         print(f"[*] Found content for selector '{selector}':")
         print("-" * 40)
         print(result[:500] + ("..." if len(result) > 500 else ""))
         print("-" * 40)
-        print("="*40 + "\n")
+        print("=" * 40 + "\n")
 
-        confirm = input(f"Do you want to add this to {CONFIG_FILE}? (y/n): ").strip().lower()
-        if confirm == 'y':
+        confirm = (
+            input(f"Do you want to add this to {CONFIG_FILE}? (y/n): ").strip().lower()
+        )
+        if confirm == "y":
             new_target = {
                 "name": name,
                 "url": url,
                 "selector": selector,
-                "interval_hours": interval_hours
+                "interval_hours": interval_hours,
             }
             config["targets"].append(new_target)
             save_config(config)
             print(f"[+] Successfully added '{name}' to {CONFIG_FILE}!")
         else:
             print("[*] Cancelled.")
+
 
 if __name__ == "__main__":
     main()

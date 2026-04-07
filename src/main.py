@@ -34,10 +34,14 @@ logger = logging.getLogger("website-change")
 logger.setLevel(logging.INFO)
 
 # Formatter: [2026-04-06 13:20:01] [INFO] Message
-formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+formatter = logging.Formatter(
+    "[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 # File Handler (Max 5MB, keep 3 backup files)
-file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+file_handler = RotatingFileHandler(
+    LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
@@ -72,7 +76,9 @@ def init_db(db_path: str) -> sqlite3.Connection:
 
 def get_stored_data(cursor: sqlite3.Cursor, url: str) -> Optional[Tuple[str, str, str]]:
     """Retrieve the stored hash, last content, and last checked timestamp for a given URL."""
-    cursor.execute("SELECT hash, last_content, last_checked FROM site_hashes WHERE url = ?", (url,))
+    cursor.execute(
+        "SELECT hash, last_content, last_checked FROM site_hashes WHERE url = ?", (url,)
+    )
     result = cursor.fetchone()
     return result if result else None
 
@@ -92,7 +98,6 @@ def update_site_data(
         (url, new_hash, new_content, now),
     )
     conn.commit()
-
 
 
 def load_config(file_path: str) -> Dict[str, Any]:
@@ -147,7 +152,9 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         return
     payload = {
         "content": message,
-        "allowed_mentions": {"parse": []}  # Prevent malicious pings from scraped content
+        "allowed_mentions": {
+            "parse": []
+        },  # Prevent malicious pings from scraped content
     }
     try:
         response = requests.post(webhook_url, json=payload, timeout=10)
@@ -173,7 +180,9 @@ def process_target(
         if last_checked_str:
             last_checked = datetime.strptime(last_checked_str, "%Y-%m-%d %H:%M:%S")
             # Using 2-minute buffer for systemd timer variations
-            if datetime.now() < last_checked + timedelta(hours=interval_hours) - timedelta(minutes=2):
+            if datetime.now() < last_checked + timedelta(
+                hours=interval_hours
+            ) - timedelta(minutes=2):
                 logger.info(f"Skipping: {name} (Interval not reached)")
                 return
     else:
@@ -247,12 +256,15 @@ def run_job() -> None:
 
 class ConfigChangeHandler(FileSystemEventHandler):
     """Handler for config file modification events."""
+
     def __init__(self, callback: Any) -> None:
         self.callback = callback
 
     def on_modified(self, event: Any) -> None:
         if event.src_path.endswith(CONFIG_FILE):
-            logger.info(f"Config file {CONFIG_FILE} changed. Triggering immediate scan...")
+            logger.info(
+                f"Config file {CONFIG_FILE} changed. Triggering immediate scan..."
+            )
             self.callback()
 
 
@@ -260,7 +272,7 @@ def main() -> None:
     """Main entry point."""
     if "--daemon" in sys.argv:
         logger.info("Running in daemon mode. Monitoring config changes.")
-        run_job() # Initial scan on startup
+        run_job()  # Initial scan on startup
 
         # Schedule hourly scan
         schedule.every(1).hours.do(run_job)
@@ -276,7 +288,7 @@ def main() -> None:
             while True:
                 schedule.run_pending()
                 time.sleep(1)
-        except (KeyboardInterrupt, SystemExit):
+        except KeyboardInterrupt, SystemExit:
             logger.info("Stopping daemon...")
             observer.stop()
         observer.join()
