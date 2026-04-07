@@ -8,7 +8,7 @@ WorkingDirectory=%h/website-change-discord
 # Use 'env' to find 'uv' and ensure the user's local path is included
 Environment="PATH=%h/.local/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/home/linuxbrew/.linuxbrew/bin/uv run src/main.py
+ExecStart=uv run monitor
 
 [Install]
 WantedBy=default.target

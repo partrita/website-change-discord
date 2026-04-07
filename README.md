@@ -39,30 +39,19 @@ targets:
     interval_hours: 24  # 하루에 한 번 체크
 ```
 
-## 설정 바로 반영하기 (`config.yaml` 변경 감지)
+## 간편하게 사이트 추가하기 (`add_site`)
 
-`config.yaml` 파일을 수정했을 때, 다음 실행을 기다리지 않고 바로 반영되도록 하는 두 가지 방법이 있습니다.
-
-### 방법 1: 데몬 모드로 실행 (권장)
-스크립트를 종료하지 않고 백업에서 계속 실행하며, 설정 파일이 변경되면 즉시 스캔을 수행합니다.
+`config.yaml` 파일을 직접 수정하는 대신, 대화형 스크립트를 사용하여 새로운 사이트를 쉽게 추가할 수 있습니다.
 
 ```bash
-# 데몬 모드로 실행
-uv run src/main.py --daemon
+# 사이트 추가 헬퍼 실행
+uv run add_site
 ```
 
-### 방법 2: systemd Path 유닛 사용 (서버 환경 권장)
-기존의 `oneshot` 서비스와 `timer` 방식을 유지하면서, 파일 변경 시에만 추가로 서비스를 실행합니다.
-
-1. `systemd/website-change.path` 파일을 복사합니다.
-   ```bash
-   cp systemd/website-change.path ~/.config/systemd/user/
-   ```
-2. path 유닛을 활성화합니다.
-   ```bash
-   systemctl --user daemon-reload
-   systemctl --user enable --now website-change.path
-   ```
+### 주요 기능
+- **실시간 테스트**: 입력한 URL과 Selector가 올바른지 즉시 확인하고 추출된 텍스트를 보여줍니다.
+- **자동 저장**: 테스트 결과가 만족스러우면 `config.yaml`에 자동으로 추가합니다.
+- **중복 방지**: 이미 등록된 URL이 있는 경우 경고를 표시합니다.
 
 ---
 
@@ -75,9 +64,22 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
 ### 2. 의존성 설치 및 실행
-이 도구는 실행 시 한 번 스캔을 수행하고 종료됩니다. `uv`를 사용하여 실행할 수 있습니다.
+이 도구는 `uv`를 통해 간편하게 실행할 수 있습니다. 한 번의 스캔을 수행하고 종료됩니다.
+
 ```bash
-uv run src/main.py
+# 동기화 및 실행 (최초 1회 권장)
+uv sync
+
+# 스캔 실행
+uv run monitor
+```
+
+### 3. 데몬 모드로 실행
+스크립트를 종료하지 않고 계속 실행하며, 설정 파일이 변경되면 즉시 스캔을 수행합니다.
+
+```bash
+# 데몬 모드로 실행
+uv run monitor --daemon
 ```
 
 ---
@@ -87,18 +89,11 @@ uv run src/main.py
 프로젝트의 작동 상태를 확인하기 위해 두 가지 방법으로 로그를 제공합니다.
 
 ### 1. 로그 파일 확인 (`app.log`)
-실행 시마다 상세한 작업 내용이 `app.log` 파일에 기록됩니다. 파일 크기가 커지면 자동으로 백업(Rotation) 처리됩니다.
+실행 시마다 상세한 작업 내용이 `app.log` 파일에 기록됩니다.
 ```bash
 # 실시간 로그 확인
 tail -f app.log
 ```
-
-**로그 내용 예시:**
-- `[INFO] Starting scan...`: 스캔 시작
-- `[INFO] Checking: [사이트명] ([URL])`: 사이트 체크 시작
-- `[INFO] CHANGE DETECTED!`: 변동 사항 감지 및 디스코드 알림 발송
-- `[INFO] Skipping: [사이트명] (Interval not reached)`: 아직 체크 주기가 되지 않아 건너뜀
-- `[ERROR] ...`: 네트워크 오류 또는 설정 오류 발생 시 출력
 
 ### 2. 시스템디 로그 확인 (`journalctl`)
 `systemd` 타이머에 의해 실행된 기록은 시스템 저널에서도 확인할 수 있습니다.
@@ -111,7 +106,7 @@ journalctl --user -u website-change.service -f
 
 ## 리눅스 서버에서 자동 실행 (systemd User Service)
 
-리눅스 서버(Ubuntu, Debian 등)를 사용 중이라면, **systemd 사용자 서비스와 타이머**를 사용하여 주기적으로 자동 실행되도록 설정하는 것이 가장 권장됩니다. 이 방식은 루트(root) 권한 없이도 설정 가능하며 사용자별로 독립적으로 동작합니다.
+리눅스 서버를 사용 중이라면, **systemd 사용자 서비스와 타이머**를 사용하는 것이 가장 권장됩니다.
 
 ### 1. 설정 파일 준비
 프로젝트의 `systemd/` 디렉토리에 있는 설정 파일들을 사용자 폴더로 복사합니다.
@@ -120,37 +115,31 @@ journalctl --user -u website-change.service -f
 mkdir -p ~/.config/systemd/user/
 cp systemd/website-change.service ~/.config/systemd/user/
 cp systemd/website-change.timer ~/.config/systemd/user/
+cp systemd/website-change.path ~/.config/systemd/user/
 ```
 
 ### 2. 서비스 등록 및 시작
-다음 명령어를 실행하여 타이머를 활성화합니다.
-
 ```bash
 # systemd 설정 새로고침
 systemctl --user daemon-reload
 
 # 타이머 활성화 및 즉시 시작
 systemctl --user enable --now website-change.timer
+
+# (선택 사항) config.yaml 변경 시 즉시 실행되도록 설정
+systemctl --user enable --now website-change.path
 ```
 
 ### 3. 로그아웃 후에도 실행 유지 (Linger 설정)
-기본적으로 `systemd --user` 서비스는 사용자가 로그아웃하면 종료됩니다. 서버 부팅 시 자동으로 시작되고 로그아웃 후에도 서비스가 계속 실행되도록 하려면 다음 명령어를 실행해야 합니다.
-
 ```bash
 sudo loginctl enable-linger $USER
 ```
 
 ### 4. 상태 확인 및 관리
 ```bash
-# 타이머가 정상적으로 등록되었는지 확인 (다음 실행 시간 표시)
+# 타이머가 정상적으로 등록되었는지 확인
 systemctl --user list-timers website-change.timer
-
-# 로그 확인 (실행 결과 및 오류 확인)
-journalctl --user -u website-change.service -f
 
 # 수동으로 즉시 실행 테스트
 systemctl --user start website-change.service
 ```
-
-### 참고: 작동 원리
-타이머는 매시간(`hourly`) 스크립트를 실행합니다. 스크립트 내부에서 각 사이트별로 설정된 `interval_hours`가 지났는지 확인하여, 주기가 된 사이트만 실제로 스캔을 수행합니다. 따라서 서버 자원을 매우 효율적으로 사용합니다.
