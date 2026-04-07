@@ -109,6 +109,9 @@ def load_config(file_path: str) -> Dict[str, Any]:
 
 def get_html(url: str) -> Optional[str]:
     """Fetch HTML content from a URL with random headers."""
+    if not url.startswith(("http://", "https://")):
+        logger.error(f"Invalid URL scheme for {url}")
+        return None
     headers = {
         "User-Agent": ua.random,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -142,7 +145,10 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
     """Send a notification message to a Discord webhook."""
     if not webhook_url or "YOUR_WEBHOOK_URL" in webhook_url:
         return
-    payload = {"content": message}
+    payload = {
+        "content": message,
+        "allowed_mentions": {"parse": []}  # Prevent malicious pings from scraped content
+    }
     try:
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
