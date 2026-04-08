@@ -161,6 +161,13 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
     """Send a notification message to a Discord webhook."""
     if not webhook_url or "YOUR_WEBHOOK_URL" in webhook_url:
         return
+
+    # Security: Prevent SSRF by validating the webhook URL scheme and domain
+    allowed_prefixes = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
+    if not webhook_url.startswith(allowed_prefixes):
+        logger.error("Invalid Discord webhook URL provided (Security restriction)")
+        return
+
     payload = {
         "content": message,
         "allowed_mentions": {
