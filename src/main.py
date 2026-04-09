@@ -1,11 +1,14 @@
 import hashlib
+import ipaddress
 import logging
 import os
 import random
+import socket
 import sqlite3
 import time
 import sys
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, List, Any, Tuple
 
@@ -112,11 +115,41 @@ def load_config(file_path: str) -> Dict[str, Any]:
             return {"targets": []}
 
 
+def is_safe_url(url: str) -> bool:
+    """Check if a URL is safe to fetch (prevents SSRF)."""
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        addr_info = socket.getaddrinfo(hostname, None)
+        if not addr_info:
+            return False
+
+        for item in addr_info:
+            ip_str = item[4][0]
+            # Handle IPv6 zone indices (e.g., fe80::1%eth0)
+            if '%' in ip_str:
+                ip_str = ip_str.split('%')[0]
+            ip = ipaddress.ip_address(ip_str)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+                return False
+        return True
+    except Exception as e:
+        return False
+
+
 def get_html(url: str) -> Optional[str]:
     """Fetch HTML content from a URL with random headers."""
     if not url.startswith(("http://", "https://")):
         logger.error(f"Invalid URL scheme for {url}")
         return None
+
+    if not is_safe_url(url):
+        logger.error(f"Security: Blocked attempt to fetch unsafe or internal URL: {url}")
+        return None
+
     headers = {
         "User-Agent": ua.random,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
