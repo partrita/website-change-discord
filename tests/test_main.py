@@ -11,7 +11,26 @@ from src.main import (
     get_stored_data,
     update_site_data,
     process_target,
+    is_safe_url,
 )
+
+
+def test_is_safe_url() -> None:
+    # Public URLs should be safe
+    assert is_safe_url("https://google.com") is True
+    assert is_safe_url("http://example.com") is True
+
+    # Internal / Localhost should be unsafe
+    assert is_safe_url("http://localhost") is False
+    assert is_safe_url("http://127.0.0.1") is False
+    assert is_safe_url("http://192.168.1.1") is False
+    assert is_safe_url("http://10.0.0.1") is False
+
+    # Cloud metadata endpoints should be unsafe
+    assert is_safe_url("http://169.254.169.254") is False
+
+    # Invalid URLs should be handled safely
+    assert is_safe_url("not_a_url") is False
 
 
 # 1. Hash Calculation Test
