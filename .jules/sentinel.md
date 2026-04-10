@@ -7,3 +7,8 @@
 **Vulnerability:** The `get_html` function in `src/main.py` and `src/add_site.py` fetched user-provided URLs using `requests.get()` without validating the underlying IP addresses. This allowed Server-Side Request Forgery (SSRF), where an attacker could provide URLs pointing to internal networks, loopback addresses (`127.0.0.1`), or cloud metadata endpoints (`169.254.169.254`).
 **Learning:** URL validation based on scheme (e.g., checking for `http://` or `https://`) is insufficient to prevent SSRF. DNS resolution must be performed, and the resulting IP addresses must be checked against safe ranges before initiating the HTTP request.
 **Prevention:** Implement a robust URL validation function (`is_safe_url`) that uses `urllib.parse.urlparse` to extract the hostname, `socket.getaddrinfo` to resolve all associated IP addresses, and the `ipaddress` module to ensure none of the resolved IPs are private, loopback, link-local, or multicast.
+
+## 2023-10-25 - Prevent SSRF via Redirects
+**Vulnerability:** The application verified that initial URLs were safe, but allowed `requests.get` to automatically follow redirects to unsafe internal IPs (like 127.0.0.1 or 169.254.169.254), bypassing the SSRF protection.
+**Learning:** SSRF prevention requires checking redirects as well as the initial URL. `requests` follows redirects by default. Overriding `requests.Session().rebuild_auth` is a reliable way to hook into redirect URL resolution before requests are sent.
+**Prevention:** Use a custom `requests.Session` subclass that overrides `rebuild_auth` to validate URLs during redirection, instead of just checking the initial URL and using `requests.get()`.

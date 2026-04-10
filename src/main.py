@@ -140,6 +140,15 @@ def is_safe_url(url: str) -> bool:
         return False
 
 
+class SafeSession(requests.Session):
+    def rebuild_auth(self, prepared_request, response):
+        if not is_safe_url(prepared_request.url):
+            raise requests.exceptions.RequestException(
+                f"Security Error: Blocked unsafe redirect to {prepared_request.url}"
+            )
+        super().rebuild_auth(prepared_request, response)
+
+
 def get_html(url: str) -> Optional[str]:
     """Fetch HTML content from a URL with random headers."""
     if not url.startswith(("http://", "https://")):
@@ -159,8 +168,9 @@ def get_html(url: str) -> Optional[str]:
     }
     try:
         time.sleep(random.uniform(1.5, 4.0))
-        response = requests.get(url, headers=headers, timeout=15, stream=True)
-        response.raise_for_status()
+        with SafeSession() as session:
+            response = session.get(url, headers=headers, timeout=15, stream=True)
+            response.raise_for_status()
 
         # Read in chunks up to 5MB to prevent memory exhaustion
         MAX_SIZE = 5 * 1024 * 1024
