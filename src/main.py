@@ -8,7 +8,7 @@ import sqlite3
 import time
 import sys
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
+from urllib3.util import parse_url
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, List, Any, Tuple
 
@@ -118,8 +118,8 @@ def load_config(file_path: str) -> Dict[str, Any]:
 def is_safe_url(url: str) -> bool:
     """Check if a URL is safe to fetch (prevents SSRF)."""
     try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
+        parsed = parse_url(url)
+        hostname = parsed.host
         if not hostname:
             return False
 
@@ -130,13 +130,13 @@ def is_safe_url(url: str) -> bool:
         for item in addr_info:
             ip_str = item[4][0]
             # Handle IPv6 zone indices (e.g., fe80::1%eth0)
-            if '%' in ip_str:
-                ip_str = ip_str.split('%')[0]
+            if "%" in ip_str:
+                ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
                 return False
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -156,7 +156,9 @@ def get_html(url: str) -> Optional[str]:
         return None
 
     if not is_safe_url(url):
-        logger.error(f"Security: Blocked attempt to fetch unsafe or internal URL: {url}")
+        logger.error(
+            f"Security: Blocked attempt to fetch unsafe or internal URL: {url}"
+        )
         return None
 
     headers = {
@@ -206,7 +208,10 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         return
 
     # Security: Prevent SSRF by validating the webhook URL scheme and domain
-    allowed_prefixes = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
+    allowed_prefixes = (
+        "https://discord.com/api/webhooks/",
+        "https://discordapp.com/api/webhooks/",
+    )
     if not webhook_url.startswith(allowed_prefixes):
         logger.error("Invalid Discord webhook URL provided (Security restriction)")
         return
