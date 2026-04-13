@@ -17,3 +17,8 @@
 **Vulnerability:** URL parsing functions like `urllib.parse.urlparse` and the one used internally by the `requests` library might interpret URLs differently (parser confusion). This could allow an attacker to craft a URL that bypasses the SSRF checks using `urlparse` while successfully hitting internal endpoints via `requests`.
 **Learning:** We need to use `urllib3.util.parse_url` when dealing with `requests` validation because `urllib3` is used by `requests` underneath. This ensures consistency between validation and network requests, avoiding parser confusion.
 **Prevention:** Use `urllib3.util.parse_url` to extract the host (`parsed.host`) when validating URLs before making requests with the `requests` module, rather than using `urllib.parse.urlparse`.
+
+## 2024-04-13 - SSRF Bypass via 0.0.0.0
+**Vulnerability:** The application was vulnerable to Server-Side Request Forgery (SSRF) bypass because it allowed requests to `0.0.0.0`, which many operating systems route to localhost.
+**Learning:** Python's `ipaddress` module properties like `is_private` and `is_loopback` do NOT catch `0.0.0.0` (which is `is_unspecified`) or other reserved IPs.
+**Prevention:** Always check `ip.is_unspecified` and `ip.is_reserved` alongside other checks when implementing an SSRF blocklist with `ipaddress`.
