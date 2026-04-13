@@ -2,7 +2,7 @@ import ipaddress
 import os
 import socket
 import yaml
-from urllib.parse import urlparse
+from urllib3.util import parse_url
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,8 +15,8 @@ ua = UserAgent()
 def is_safe_url(url: str) -> bool:
     """Check if a URL is safe to fetch (prevents SSRF)."""
     try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
+        parsed = parse_url(url)
+        hostname = parsed.host
         if not hostname:
             return False
 
@@ -27,13 +27,13 @@ def is_safe_url(url: str) -> bool:
         for item in addr_info:
             ip_str = item[4][0]
             # Handle IPv6 zone indices (e.g., fe80::1%eth0)
-            if '%' in ip_str:
-                ip_str = ip_str.split('%')[0]
+            if "%" in ip_str:
+                ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:
                 return False
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -49,7 +49,9 @@ class SafeSession(requests.Session):
 def get_html(url):
     """Fetch HTML content from a URL with random headers."""
     if not is_safe_url(url):
-        print(f"[!] Security Error: Blocked attempt to fetch unsafe or internal URL: {url}")
+        print(
+            f"[!] Security Error: Blocked attempt to fetch unsafe or internal URL: {url}"
+        )
         return None
 
     headers = {

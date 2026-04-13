@@ -12,3 +12,8 @@
 **Vulnerability:** The application verified that initial URLs were safe, but allowed `requests.get` to automatically follow redirects to unsafe internal IPs (like 127.0.0.1 or 169.254.169.254), bypassing the SSRF protection.
 **Learning:** SSRF prevention requires checking redirects as well as the initial URL. `requests` follows redirects by default. Overriding `requests.Session().rebuild_auth` is a reliable way to hook into redirect URL resolution before requests are sent.
 **Prevention:** Use a custom `requests.Session` subclass that overrides `rebuild_auth` to validate URLs during redirection, instead of just checking the initial URL and using `requests.get()`.
+
+## 2025-02-14 - Prevent SSRF bypass through parser confusion
+**Vulnerability:** URL parsing functions like `urllib.parse.urlparse` and the one used internally by the `requests` library might interpret URLs differently (parser confusion). This could allow an attacker to craft a URL that bypasses the SSRF checks using `urlparse` while successfully hitting internal endpoints via `requests`.
+**Learning:** We need to use `urllib3.util.parse_url` when dealing with `requests` validation because `urllib3` is used by `requests` underneath. This ensures consistency between validation and network requests, avoiding parser confusion.
+**Prevention:** Use `urllib3.util.parse_url` to extract the host (`parsed.host`) when validating URLs before making requests with the `requests` module, rather than using `urllib.parse.urlparse`.
