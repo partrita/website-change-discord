@@ -25,6 +25,7 @@ def test_is_safe_url() -> None:
     assert is_safe_url("http://127.0.0.1") is False
     assert is_safe_url("http://192.168.1.1") is False
     assert is_safe_url("http://10.0.0.1") is False
+    assert is_safe_url("http://0.0.0.0") is False
 
     # Cloud metadata endpoints should be unsafe
     assert is_safe_url("http://169.254.169.254") is False

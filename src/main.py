@@ -8,7 +8,7 @@ import sqlite3
 import time
 import sys
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
+from urllib3.util import parse_url
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, List, Any, Tuple
 
@@ -118,8 +118,8 @@ def load_config(file_path: str) -> Dict[str, Any]:
 def is_safe_url(url: str) -> bool:
     """Check if a URL is safe to fetch (prevents SSRF)."""
     try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
+        parsed = parse_url(url)
+        hostname = parsed.host
         if not hostname:
             return False
 
@@ -133,7 +133,14 @@ def is_safe_url(url: str) -> bool:
             if "%" in ip_str:
                 ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_multicast
+                or ip.is_unspecified
+                or ip.is_reserved
+            ):
                 return False
         return True
     except Exception:
