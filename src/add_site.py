@@ -27,13 +27,13 @@ def is_safe_url(url: str) -> bool:
         for item in addr_info:
             ip_str = item[4][0]
             # Handle IPv6 zone indices (e.g., fe80::1%eth0)
-            if '%' in ip_str:
-                ip_str = ip_str.split('%')[0]
+            if "%" in ip_str:
+                ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
                 return False
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -46,11 +46,13 @@ class SafeSession(requests.Session):
         super().rebuild_auth(prepared_request, response)
 
 
-def get_html(url):
+def get_html(url, verify=True):
     """Fetch HTML content from a URL with random headers."""
     if not is_safe_url(url):
-        print(f"[!] Security Error: Blocked attempt to fetch unsafe or internal URL: {url}")
-        return None
+        print(
+            f"[!] Security Error: Blocked attempt to fetch unsafe or internal URL: {url}"
+        )
+        return None, verify
 
     headers = {
         "User-Agent": ua.random,
@@ -61,7 +63,13 @@ def get_html(url):
     try:
         print(f"[*] Fetching {url}...")
         with SafeSession() as session:
-            response = session.get(url, headers=headers, timeout=15, stream=True)
+            if not verify:
+                import urllib3
+
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            response = session.get(
+                url, headers=headers, timeout=15, stream=True, verify=verify
+            )
             response.raise_for_status()
 
         MAX_SIZE = 5 * 1024 * 1024
@@ -71,12 +79,25 @@ def get_html(url):
             if len(content) > MAX_SIZE:
                 print(f"[!] Error: Response from {url} exceeded 5MB limit.")
                 response.close()
-                return None
+                return None, verify
 
-        return content.decode(response.encoding or "utf-8", errors="replace")
+        return content.decode(response.encoding or "utf-8", errors="replace"), verify
+    except requests.exceptions.SSLError as e:
+        print(f"[!] SSL Certificate Error: {e}")
+        if verify:
+            choice = (
+                input(
+                    "[?] SSL 인증서 확인에 실패했습니다. 인증서 검증 없이 계속하시겠습니까? (y/n): "
+                )
+                .strip()
+                .lower()
+            )
+            if choice == "y":
+                return get_html(url, verify=False)
+        return None, verify
     except Exception as e:
         print(f"[!] Error fetching {url}: {e}")
-        return None
+        return None, verify
 
 
 def parse_element(html, selector):
@@ -141,7 +162,7 @@ def main():
         print("[!] Invalid interval, using default 12.")
         interval_hours = 12
 
-    html = get_html(url)
+    html, final_verify = get_html(url)
     if not html:
         print("[!] Could not retrieve website content.")
         return
@@ -172,6 +193,8 @@ def main():
                 "selector": selector,
                 "interval_hours": interval_hours,
             }
+            if not final_verify:
+                new_target["verify_ssl"] = False
             config["targets"].append(new_target)
             save_config(config)
             print(f"[+] Successfully added '{name}' to {CONFIG_FILE}!")

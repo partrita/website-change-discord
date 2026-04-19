@@ -114,3 +114,22 @@ def test_process_target_flow(
     message = args[1]
     assert "Initial Content" in message
     assert "Changed Content" in message
+
+
+@patch("src.main.get_html")
+def test_process_target_verify_ssl(
+    mock_get_html: MagicMock, db_conn: sqlite3.Connection
+) -> None:
+    target: Dict[str, Any] = {
+        "name": "Secure Site",
+        "url": "https://secure.com",
+        "selector": "h1",
+        "interval_hours": 0,
+        "verify_ssl": False,
+    }
+    mock_get_html.return_value = "<html><h1>Content</h1></html>"
+
+    process_target(db_conn, target, None)
+
+    # Ensure get_html was called with verify=False
+    mock_get_html.assert_called_with("https://secure.com", verify=False)

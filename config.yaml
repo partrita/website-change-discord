@@ -1,9 +1,14 @@
 targets:
-- name: 뉴스 사이트
-  url: https://news.ycombinator.com
-  selector: .titleline
-  interval_hours: 12
 - name: prefix_blog
   url: https://prefix.dev/blog
   selector: h3
+  interval_hours: 12
+- name: david_backer_lab
+  url: https://www.bakerlab.org/publications/
+  selector: .publications
+  interval_hours: 12
+  verify_ssl: false
+- name: seoklab
+  url: https://seoklab.org/publications/
+  selector: .post-list
   interval_hours: 12

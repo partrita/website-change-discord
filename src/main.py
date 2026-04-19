@@ -130,13 +130,13 @@ def is_safe_url(url: str) -> bool:
         for item in addr_info:
             ip_str = item[4][0]
             # Handle IPv6 zone indices (e.g., fe80::1%eth0)
-            if '%' in ip_str:
-                ip_str = ip_str.split('%')[0]
+            if "%" in ip_str:
+                ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
                 return False
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -149,14 +149,16 @@ class SafeSession(requests.Session):
         super().rebuild_auth(prepared_request, response)
 
 
-def get_html(url: str) -> Optional[str]:
+def get_html(url: str, verify: bool = True) -> Optional[str]:
     """Fetch HTML content from a URL with random headers."""
     if not url.startswith(("http://", "https://")):
         logger.error(f"Invalid URL scheme for {url}")
         return None
 
     if not is_safe_url(url):
-        logger.error(f"Security: Blocked attempt to fetch unsafe or internal URL: {url}")
+        logger.error(
+            f"Security: Blocked attempt to fetch unsafe or internal URL: {url}"
+        )
         return None
 
     headers = {
@@ -169,7 +171,15 @@ def get_html(url: str) -> Optional[str]:
     try:
         time.sleep(random.uniform(1.5, 4.0))
         with SafeSession() as session:
-            response = session.get(url, headers=headers, timeout=15, stream=True)
+            # Disable warnings only if verify is False
+            if not verify:
+                import urllib3
+
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+            response = session.get(
+                url, headers=headers, timeout=15, stream=True, verify=verify
+            )
             response.raise_for_status()
 
         # Read in chunks up to 5MB to prevent memory exhaustion
@@ -206,7 +216,10 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         return
 
     # Security: Prevent SSRF by validating the webhook URL scheme and domain
-    allowed_prefixes = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
+    allowed_prefixes = (
+        "https://discord.com/api/webhooks/",
+        "https://discordapp.com/api/webhooks/",
+    )
     if not webhook_url.startswith(allowed_prefixes):
         logger.error("Invalid Discord webhook URL provided (Security restriction)")
         return
@@ -234,6 +247,7 @@ def process_target(
     selector = target["selector"]
     webhook = target.get("webhook_url") or global_webhook
     interval_hours = target.get("interval_hours", 24)
+    verify_ssl = target.get("verify_ssl", True)
 
     stored_data = get_stored_data(conn.cursor(), url)
     if stored_data:
@@ -250,7 +264,7 @@ def process_target(
         previous_hash, previous_content = None, None
 
     logger.info(f"Checking: {name} ({url})")
-    html = get_html(url)
+    html = get_html(url, verify=verify_ssl)
     if not html:
         return
 
