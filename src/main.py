@@ -21,6 +21,8 @@ from fake_useragent import UserAgent
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from src.ssrf_adapter import SafeAdapter
+
 # Load environment variables
 load_dotenv()
 
@@ -178,6 +180,9 @@ def get_html(url: str, verify: bool = True) -> Optional[str]:
     try:
         time.sleep(random.uniform(1.5, 4.0))
         with SafeSession() as session:
+            session.mount("http://", SafeAdapter())
+            session.mount("https://", SafeAdapter())
+
             # Disable warnings only if verify is False
             if not verify:
                 import urllib3

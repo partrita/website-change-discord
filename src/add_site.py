@@ -8,6 +8,8 @@ import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
+from src.ssrf_adapter import SafeAdapter
+
 CONFIG_FILE = "config.yaml"
 ua = UserAgent()
 
@@ -70,6 +72,9 @@ def get_html(url, verify=True):
     try:
         print(f"[*] Fetching {url}...")
         with SafeSession() as session:
+            session.mount("http://", SafeAdapter())
+            session.mount("https://", SafeAdapter())
+
             if not verify:
                 import urllib3
 

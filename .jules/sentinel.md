@@ -22,3 +22,8 @@
 **Vulnerability:** The application was vulnerable to Server-Side Request Forgery (SSRF) bypass because it allowed requests to `0.0.0.0`, which many operating systems route to localhost.
 **Learning:** Python's `ipaddress` module properties like `is_private` and `is_loopback` do NOT catch `0.0.0.0` (which is `is_unspecified`) or other reserved IPs.
 **Prevention:** Always check `ip.is_unspecified` and `ip.is_reserved` alongside other checks when implementing an SSRF blocklist with `ipaddress`.
+
+## 2026-04-19 - [CRITICAL] Prevent SSRF DNS Rebinding (TOCTOU)
+**Vulnerability:** Even though the application previously validated URLs to prevent SSRF, it was still vulnerable to DNS Rebinding (Time-of-Check to Time-of-Use) attacks. The validation resolved the IP for safety (`is_safe_url`), but `requests.get()` independently resolved the IP again. An attacker could respond with a safe IP first, and then an internal IP (like `127.0.0.1`) on the second resolution.
+**Learning:** URL validation is useless if the HTTP client re-resolves the domain name. The IP must be validated exactly at the moment of connection establishment to prevent TOCTOU vulnerabilities.
+**Prevention:** Use a custom `urllib3` connection adapter (`requests.adapters.HTTPAdapter`) to intercept socket creation. Resolve the domain, validate the IP immediately, and pass that exact validated IP directly into `urllib3.util.connection.create_connection`. Also, ensure that IPv4-mapped IPv6 addresses are properly unwrapped (`ip.ipv4_mapped`) before validation to avoid `ipaddress` module bypasses.
