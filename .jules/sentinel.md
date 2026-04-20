@@ -27,3 +27,8 @@
 **Vulnerability:** Even though the application previously validated URLs to prevent SSRF, it was still vulnerable to DNS Rebinding (Time-of-Check to Time-of-Use) attacks. The validation resolved the IP for safety (`is_safe_url`), but `requests.get()` independently resolved the IP again. An attacker could respond with a safe IP first, and then an internal IP (like `127.0.0.1`) on the second resolution.
 **Learning:** URL validation is useless if the HTTP client re-resolves the domain name. The IP must be validated exactly at the moment of connection establishment to prevent TOCTOU vulnerabilities.
 **Prevention:** Use a custom `urllib3` connection adapter (`requests.adapters.HTTPAdapter`) to intercept socket creation. Resolve the domain, validate the IP immediately, and pass that exact validated IP directly into `urllib3.util.connection.create_connection`. Also, ensure that IPv4-mapped IPv6 addresses are properly unwrapped (`ip.ipv4_mapped`) before validation to avoid `ipaddress` module bypasses.
+
+## 2025-02-24 - [CRITICAL] Fix SSRF bypass via IPv4-mapped IPv6
+**Vulnerability:** The application's `is_safe_url` function failed to evaluate the underlying IPv4 address for IPv4-mapped IPv6 addresses (e.g., `::ffff:127.0.0.1`). This allowed attackers to bypass SSRF protections and access internal networks or loopback addresses.
+**Learning:** Python's `ipaddress` module requires explicitly unwrapping IPv4-mapped IPv6 addresses using `getattr(ip, "ipv4_mapped", None)` before applying checks like `is_private` or `is_loopback`.
+**Prevention:** Always check if an IP address is an IPv4-mapped IPv6 address and extract the underlying IPv4 address before validating it against blocklists in SSRF protections.
