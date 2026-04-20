@@ -39,7 +39,7 @@ def create_safe_connection(
             or ip.is_unspecified
             or ip.is_reserved
         ):
-            raise requests.exceptions.RequestException(
+            raise requests.exceptions.ConnectionError(
                 f"Security Error: Blocked unsafe IP {ip_str} for host {host}"
             )
 
