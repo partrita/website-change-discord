@@ -101,6 +101,5 @@ class SafeAdapter(HTTPAdapter):
             num_pools=connections,
             maxsize=maxsize,
             block=block,
-            block=block,
             **pool_kwargs,
         )

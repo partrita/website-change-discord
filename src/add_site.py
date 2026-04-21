@@ -32,6 +32,10 @@ def is_safe_url(url: str) -> bool:
             if "%" in ip_str:
                 ip_str = ip_str.split("%")[0]
             ip = ipaddress.ip_address(ip_str)
+
+            if getattr(ip, "ipv4_mapped", None):
+                ip = ip.ipv4_mapped
+
             if (
                 ip.is_private
                 or ip.is_loopback

@@ -30,6 +30,11 @@ def test_is_safe_url() -> None:
     # Cloud metadata endpoints should be unsafe
     assert is_safe_url("http://169.254.169.254") is False
 
+    # IPv4-mapped IPv6 should be unsafe if underlying IPv4 is unsafe
+    assert is_safe_url("http://[::ffff:127.0.0.1]") is False
+    assert is_safe_url("http://[::ffff:169.254.169.254]") is False
+    assert is_safe_url("http://[::ffff:10.0.0.1]") is False
+
     # Invalid URLs should be handled safely
     assert is_safe_url("not_a_url") is False
 
