@@ -32,3 +32,8 @@
 **Vulnerability:** The application's `is_safe_url` function failed to evaluate the underlying IPv4 address for IPv4-mapped IPv6 addresses (e.g., `::ffff:127.0.0.1`). This allowed attackers to bypass SSRF protections and access internal networks or loopback addresses.
 **Learning:** Python's `ipaddress` module requires explicitly unwrapping IPv4-mapped IPv6 addresses using `getattr(ip, "ipv4_mapped", None)` before applying checks like `is_private` or `is_loopback`.
 **Prevention:** Always check if an IP address is an IPv4-mapped IPv6 address and extract the underlying IPv4 address before validating it against blocklists in SSRF protections.
+
+## 2025-02-28 - [CRITICAL] Prevent SSRF Bypass in Discord Webhooks via requests.post
+**Vulnerability:** The `send_discord_notification` function in `src/main.py` validated the webhook URL scheme and prefix using a naive string `startswith` check, and then used the default `requests.post()` to make the request. This bypassed the `SafeSession` and `SafeAdapter` used in the rest of the app, making the webhook request vulnerable to DNS rebinding or redirects to internal IPs if the URL was somehow bypassed or if `discord.com` unexpectedly redirected.
+**Learning:** Default `requests` methods (`requests.get`, `requests.post`) must never be used when an application provides a custom `SafeSession` class to prevent SSRF and DNS rebinding. Any URL processing that might issue HTTP requests must be done through the validated session.
+**Prevention:** Always use the project's custom `SafeSession` as a context manager (with `SafeAdapter` mounted) for all outbound HTTP requests to prevent SSRF.

@@ -247,8 +247,12 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
         },  # Prevent malicious pings from scraped content
     }
     try:
-        response = requests.post(webhook_url, json=payload, timeout=10)
-        response.raise_for_status()
+        with SafeSession() as session:
+            adapter = SafeAdapter()
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            response = session.post(webhook_url, json=payload, timeout=10)
+            response.raise_for_status()
     except Exception:
         # Avoid logging the exception object directly as it contains the secret webhook URL
         logger.error("Discord notification error (URL redacted for security)")
