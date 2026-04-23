@@ -248,8 +248,9 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
     }
     try:
         with SafeSession() as session:
-            session.mount("http://", SafeAdapter())
-            session.mount("https://", SafeAdapter())
+            adapter = SafeAdapter()
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
             response = session.post(webhook_url, json=payload, timeout=10)
             response.raise_for_status()
     except Exception:
