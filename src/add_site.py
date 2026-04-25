@@ -43,6 +43,7 @@ def is_safe_url(url: str) -> bool:
                 or ip.is_multicast
                 or ip.is_unspecified
                 or ip.is_reserved
+                or not ip.is_global
             ):
                 return False
         return True
