@@ -38,6 +38,7 @@ def create_safe_connection(
             or ip.is_multicast
             or ip.is_unspecified
             or ip.is_reserved
+            or not ip.is_global
         ):
             raise requests.exceptions.ConnectionError(
                 f"Security Error: Blocked unsafe IP {ip_str} for host {host}"
