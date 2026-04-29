@@ -19,6 +19,7 @@ def test_is_safe_url() -> None:
     # Public URLs should be safe
     assert is_safe_url("https://google.com") is True
     assert is_safe_url("http://example.com") is True
+    assert is_safe_url("http://[2606:4700:4700::1111]/") is True
 
     # Internal / Localhost should be unsafe
     assert is_safe_url("http://localhost") is False
