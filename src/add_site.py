@@ -22,6 +22,7 @@ def is_safe_url(url: str) -> bool:
         if not hostname:
             return False
 
+        hostname = hostname.strip("[]")
         addr_info = socket.getaddrinfo(hostname, None)
         if not addr_info:
             return False
