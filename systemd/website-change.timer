@@ -1,8 +1,9 @@
 [Unit]
 Description=Run Website Change Notification Service Hourly
+PartOf=website-change.service
 
 [Timer]
-# Run every hour to check for individual site intervals
+# Execution schedule (can be automatically configured from .env via 'uv run setup_systemd')
 OnCalendar=hourly
 # Ensure it runs even if it missed its last scheduled time
 Persistent=true

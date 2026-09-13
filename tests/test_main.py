@@ -140,3 +140,20 @@ def test_process_target_verify_ssl(
 
     # Ensure get_html was called with verify=False
     mock_get_html.assert_called_with("https://secure.com", verify=False)
+
+
+@patch("src.main.get_html")
+def test_process_target_default_interval(
+    mock_get_html: MagicMock, db_conn: sqlite3.Connection
+) -> None:
+    # Target without interval_hours should default to DEFAULT_INTERVAL_HOURS
+    target: dict[str, Any] = {
+        "name": "Default Interval Site",
+        "url": "https://default.com",
+        "selector": "h1",
+    }
+    mock_get_html.return_value = "<html><h1>Content</h1></html>"
+
+    process_target(db_conn, target, None)
+    mock_get_html.assert_called_once_with("https://default.com", verify=True)
+

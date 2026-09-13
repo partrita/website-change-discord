@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=oneshot
+# Note: Can be automatically configured for your environment via 'uv run setup_systemd'
 WorkingDirectory=%h/website-change-discord
-# Use 'env' to find 'uv' and ensure the user's local path is included
-Environment="PATH=%h/.local/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=%h/.local/bin:%h/.cargo/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=uv run monitor
+ExecStart=/usr/bin/env uv run monitor
 
 [Install]
 WantedBy=default.target

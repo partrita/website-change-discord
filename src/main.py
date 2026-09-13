@@ -21,20 +21,26 @@ from fake_useragent import UserAgent
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from src.config import (
+    BASE_DIR,
+    CONFIG_FILE,
+    DB_FILE,
+    LOG_FILE,
+    DISCORD_WEBHOOK_URL,
+    DEFAULT_INTERVAL_HOURS,
+    DAEMON_INTERVAL_MINUTES,
+    SYSTEMD_TIMER_ON_CALENDAR,
+    REQUEST_TIMEOUT,
+    DISCORD_TIMEOUT,
+    LOG_MAX_BYTES,
+    LOG_BACKUP_COUNT,
+    resolve_path,
+)
 from src.ssrf_adapter import SafeAdapter
 
-# Load environment variables
-load_dotenv()
-
-# --- Configuration Constants ---
-CONFIG_FILE = "config.yaml"
-DB_FILE = "hashes.db"
-LOG_FILE = "app.log"
-DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
 ua = UserAgent()
 
 # --- Logging Setup ---
-# ... rest of logger setup ...
 logger = logging.getLogger("website-change")
 logger.setLevel(logging.INFO)
 
@@ -43,9 +49,13 @@ formatter = logging.Formatter(
     "[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-# File Handler (Max 5MB, keep 3 backup files)
+# File Handler (Ensure directory exists)
+log_dir = os.path.dirname(os.path.abspath(LOG_FILE))
+if log_dir:
+    os.makedirs(log_dir, exist_ok=True)
+
 file_handler = RotatingFileHandler(
-    LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+    LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8"
 )
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
@@ -58,6 +68,10 @@ logger.addHandler(stream_handler)
 
 def init_db(db_path: str) -> sqlite3.Connection:
     """Initialize the SQLite database and create/update the table."""
+    if db_path != ":memory:":
+        db_dir = os.path.dirname(os.path.abspath(db_path))
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("""
@@ -196,7 +210,7 @@ def get_html(url: str, verify: bool = True) -> Optional[str]:
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
             response = session.get(
-                url, headers=headers, timeout=15, stream=True, verify=verify
+                url, headers=headers, timeout=REQUEST_TIMEOUT, stream=True, verify=verify
             )
             response.raise_for_status()
 
@@ -253,7 +267,7 @@ def send_discord_notification(webhook_url: Optional[str], message: str) -> None:
             adapter = SafeAdapter()
             session.mount("http://", adapter)
             session.mount("https://", adapter)
-            response = session.post(webhook_url, json=payload, timeout=10)
+            response = session.post(webhook_url, json=payload, timeout=DISCORD_TIMEOUT)
             response.raise_for_status()
     except Exception:
         # Avoid logging the exception object directly as it contains the secret webhook URL
@@ -268,7 +282,7 @@ def process_target(
     url = target["url"]
     selector = target["selector"]
     webhook = target.get("webhook_url") or global_webhook
-    interval_hours = target.get("interval_hours", 24)
+    interval_hours = target.get("interval_hours", DEFAULT_INTERVAL_HOURS)
     verify_ssl = target.get("verify_ssl", True)
 
     stored_data = get_stored_data(conn.cursor(), url)
@@ -358,7 +372,7 @@ class ConfigChangeHandler(FileSystemEventHandler):
         self.callback = callback
 
     def on_modified(self, event: Any) -> None:
-        if event.src_path.endswith(CONFIG_FILE):
+        if os.path.abspath(event.src_path) == os.path.abspath(CONFIG_FILE):
             logger.info(
                 f"Config file {CONFIG_FILE} changed. Triggering immediate scan..."
             )
@@ -368,17 +382,20 @@ class ConfigChangeHandler(FileSystemEventHandler):
 def main() -> None:
     """Main entry point."""
     if "--daemon" in sys.argv:
-        logger.info("Running in daemon mode. Monitoring config changes.")
+        logger.info(
+            f"Running in daemon mode (interval: {DAEMON_INTERVAL_MINUTES}m). Monitoring config changes."
+        )
         run_job()  # Initial scan on startup
 
-        # Schedule hourly scan
-        schedule.every(1).hours.do(run_job)
+        # Schedule scan according to DAEMON_INTERVAL_MINUTES
+        schedule.every(DAEMON_INTERVAL_MINUTES).minutes.do(run_job)
 
         # Setup watchdog to monitor config file changes
         event_handler = ConfigChangeHandler(run_job)
         observer = Observer()
-        # Watch the current directory for the config file
-        observer.schedule(event_handler, path=".", recursive=False)
+        # Watch the directory containing the config file
+        config_dir = os.path.dirname(os.path.abspath(CONFIG_FILE)) or "."
+        observer.schedule(event_handler, path=config_dir, recursive=False)
         observer.start()
 
         try:

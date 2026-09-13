@@ -8,9 +8,9 @@ import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
+from src.config import CONFIG_FILE, DEFAULT_INTERVAL_HOURS, REQUEST_TIMEOUT
 from src.ssrf_adapter import SafeAdapter
 
-CONFIG_FILE = "config.yaml"
 ua = UserAgent()
 
 
@@ -86,7 +86,7 @@ def get_html(url, verify=True):
 
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             response = session.get(
-                url, headers=headers, timeout=15, stream=True, verify=verify
+                url, headers=headers, timeout=REQUEST_TIMEOUT, stream=True, verify=verify
             )
             response.raise_for_status()
 
@@ -173,12 +173,14 @@ def main():
         print("[!] Selector is required.")
         return
 
-    interval = input("Enter check interval in hours (default: 12): ").strip()
+    interval = input(
+        f"Enter check interval in hours (default: {DEFAULT_INTERVAL_HOURS}): "
+    ).strip()
     try:
-        interval_hours = int(interval) if interval else 12
+        interval_hours = int(interval) if interval else DEFAULT_INTERVAL_HOURS
     except ValueError:
-        print("[!] Invalid interval, using default 12.")
-        interval_hours = 12
+        print(f"[!] Invalid interval, using default {DEFAULT_INTERVAL_HOURS}.")
+        interval_hours = DEFAULT_INTERVAL_HOURS
 
     html, final_verify = get_html(url)
     if not html:

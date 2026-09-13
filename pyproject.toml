@@ -22,6 +22,7 @@ dev = [
 [project.scripts]
 add_site = "src.add_site:main"
 monitor = "src.main:main"
+setup_systemd = "src.setup_systemd:main"
 
 [tool.uv]
 package = true

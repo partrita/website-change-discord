@@ -1,5 +1,6 @@
 [Unit]
 Description=Watch config.yaml for changes
+# Note: Can be automatically configured for your environment via 'uv run setup_systemd'
 ConditionPathExists=%h/website-change-discord/config.yaml
 
 [Path]
