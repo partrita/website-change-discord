@@ -1,3 +1,5 @@
+# GEMINI.md
+
 ## Project Overview
 Website Change Discord Watcher is a Python-based automation tool designed to monitor specific sections of websites and send notifications to a Discord webhook when changes are detected. It uses CSS selectors for precise targeting and maintains state using an SQLite database to ensure only meaningful updates are reported.
 
